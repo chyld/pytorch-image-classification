@@ -89,3 +89,6 @@ class Model:
             
 					self.model.train()
 					loss_per_x_batches = 0
+	def save(self, save_dir, train_dataset):
+		state = {'model': self.model.state_dict(), 'optimizer': self.optimizer.state_dict(), 'class_to_idx': train_dataset.class_to_idx}
+		torch.save(state, save_dir + '/model.checkpoint')

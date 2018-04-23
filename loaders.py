@@ -27,4 +27,4 @@ def load(data_dir):
 	num_train_images = len(train_loader.dataset.imgs)
 	num_valid_images = len(valid_loader.dataset.imgs)
 
-	return train_loader, valid_loader, num_train_images, num_valid_images
+	return train_loader, valid_loader, num_train_images, num_valid_images, train_dataset
