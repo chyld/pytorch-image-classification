@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torchvision import datasets, transforms, models
 from collections import OrderedDict
+import numpy as np
 
 class Network:
     ### ------------------------------------------------------ ###
@@ -113,3 +114,47 @@ class Network:
     ### ------------------------------------------------------ ###
     ### ------------------------------------------------------ ###
     ### ------------------------------------------------------ ###
+	def predict(self, image, gpu, top_k, names):
+		''' Predict the class (or classes) of an image using a trained deep learning model.'''    
+		cuda = torch.cuda.is_available()
+    
+    	# move the model to cuda
+		if cuda and gpu:
+			self.model.cuda()
+		else:
+			self.model.cpu()
+
+    	# turn dropout OFF
+		self.model.eval()
+    
+    	# convert numpy array to tensor
+		image = torch.from_numpy(np.array([image])).float()
+    
+    	# create variable from tensor
+		image = Variable(image, requires_grad=False, volatile=True)
+    
+    	# move the image to cuda
+		if cuda and gpu:
+			image = image.cuda()
+    
+    	# forward propagation
+		output = self.model.forward(image)
+    
+    	# get probabilities
+		probabilities = torch.exp(output).data
+    
+		# getting the topk probabilites and indexes
+		top_p = torch.topk(probabilities, top_k)[0].tolist()[0]
+		top_i = torch.topk(probabilities, top_k)[1].tolist()[0]
+    
+		# creating a reverse mapping from index to class
+		idx_to_class = {v: k for k, v in self.model.class_to_idx.items()}
+    
+		# converting the list of indexes to list of classes
+		top_c = list(map(lambda i: idx_to_class[i], top_i))
+
+        # convert list of classes to list of flower names
+		top_n = [names[c] for c in top_c]
+        
+		return list(zip(top_p, top_n))
+  
