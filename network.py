@@ -6,30 +6,41 @@ from torch.autograd import Variable
 from torchvision import datasets, transforms, models
 from collections import OrderedDict
 
-class Model:
+class Network:
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
 	def __init__(self, arch, units, lr):
-		self.arch = arch
-		self.units = units
-		self.lr = lr
-	def create(self):
-		self.model = getattr(models, self.arch)(pretrained=True)
+		# currently works with resnet, densenet & inception models
+		self.model = getattr(models, arch)(pretrained=True)
+		class_layer_name = 'classifier' if 'classifier' in dir(self.model) else 'fc'
+		in_size = getattr(self.model, class_layer_name).in_features
+		out_size = 102
 
+        # freeze parameters
 		for param in self.model.parameters():
 			param.requires_grad = False
 
-		self.model.fc = nn.Sequential(OrderedDict([
-                          ('fc1', nn.Linear(2048, self.units)),
+        # create output classification layer
+		output_layer = nn.Sequential(OrderedDict([
+                          ('fc1', nn.Linear(in_size, units)),
                           ('relu', nn.ReLU()),
                           ('dropout', nn.Dropout(p=0.5)),
-                          ('fc2', nn.Linear(self.units, 102)),
+                          ('fc2', nn.Linear(units, out_size)),
                           ('relu', nn.ReLU()),
                           ('output', nn.LogSoftmax(dim=1))
                           ]))
-
+        
+        # replace old classification layer with custom one
+		setattr(self.model, class_layer_name, output_layer)
+        
+        # loss and optimizer functions
 		self.criterion = nn.NLLLoss()
-		self.optimizer = optim.Adam(self.model.fc.parameters(), lr=self.lr)
-
-	def train(self, gpu, epochs, save_dir, train_loader, valid_loader, num_train_images, num_valid_images):
+		self.optimizer = optim.Adam(getattr(self.model, class_layer_name).parameters(), lr=lr)
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
+	def train(self, gpu, epochs, train_loader, valid_loader):
 		cuda = torch.cuda.is_available()
 
 		if cuda and gpu:
@@ -45,8 +56,6 @@ class Model:
 		for epoch in range(epochs):
 			for ii, (inputs, labels) in enumerate(train_loader):
                 ### -------------------------------------------------------------------------------- ###
-                ### -------------------------------------------------------------------------------- ###
-                ### -------------------------------------------------------------------------------- ###
 				inputs, labels = Variable(inputs, requires_grad=True), Variable(labels)
 
 				if cuda and gpu:
@@ -58,8 +67,6 @@ class Model:
 				self.optimizer.step()
 
 				loss_per_x_batches += loss.data[0]
-                ### -------------------------------------------------------------------------------- ###
-                ### -------------------------------------------------------------------------------- ###
                 ### -------------------------------------------------------------------------------- ###
 				if ii % print_every_x_batches == 0:
 					self.model.eval()
@@ -84,11 +91,14 @@ class Model:
 						"train loss: {:.3f}".format(loss_per_x_batches),
 						"valid loss: {:.3f}".format(validation_loss),
 						"total correct: {}".format(total_score),
-						"accuracy: {:.3f}".format(total_score/num_valid_images),
+						"accuracy: {:.3f}".format(total_score),
 					)
             
 					self.model.train()
 					loss_per_x_batches = 0
-	def save(self, save_dir, train_dataset):
-		state = {'model': self.model.state_dict(), 'optimizer': self.optimizer.state_dict(), 'class_to_idx': train_dataset.class_to_idx}
-		torch.save(state, save_dir + '/model.checkpoint')
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
+	def abc(self):
+		pass
+    
