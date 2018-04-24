@@ -12,6 +12,7 @@ class Network:
     ### ------------------------------------------------------ ###
 	def __init__(self, arch, units, lr):
 		# currently works with resnet, densenet & inception models
+		self.arch, self.units, self.lr = arch, units, lr
 		self.model = getattr(models, arch)(pretrained=True)
 		class_layer_name = 'classifier' if 'classifier' in dir(self.model) else 'fc'
 		in_size = getattr(self.model, class_layer_name).in_features
@@ -70,7 +71,7 @@ class Network:
                 ### -------------------------------------------------------------------------------- ###
 				if ii % print_every_x_batches == 0:
 					self.model.eval()
-					validation_loss, total_score = 0, 0
+					validation_loss, total_correct, accuracy = 0, 0, 0
             
 					for _, (inputs, labels) in enumerate(valid_loader):                
 						inputs, labels = Variable(inputs, requires_grad=False, volatile=True), Variable(labels)
@@ -83,15 +84,16 @@ class Network:
 
 						validation_loss += loss.data[0]
 						probabilities = torch.exp(outputs).data
-						total_score += (labels.data == probabilities.max(1)[1]).sum()
-                  
+						equality = (labels.data == probabilities.max(1)[1])
+						total_correct += equality.sum()
+						accuracy += equality.type_as(torch.FloatTensor()).mean()
                   
 					print(
 						"epoch: {} batch: {}".format(epoch, ii),
 						"train loss: {:.3f}".format(loss_per_x_batches),
 						"valid loss: {:.3f}".format(validation_loss),
-						"total correct: {}".format(total_score),
-						"accuracy: {:.3f}".format(total_score),
+						"total correct: {}".format(total_correct),
+						"accuracy: {:.3f}".format(accuracy),
 					)
             
 					self.model.train()
@@ -99,6 +101,15 @@ class Network:
     ### ------------------------------------------------------ ###
     ### ------------------------------------------------------ ###
     ### ------------------------------------------------------ ###
-	def abc(self):
-		pass
-    
+	def save(self, save_dir, train_dataset):
+		state = {'model_state': self.model.state_dict(),
+             	'optimizer_state': self.optimizer.state_dict(),
+             	'class_to_idx': train_dataset.class_to_idx,
+            	'arch': self.arch,
+             	'units': self.units,
+             	'lr': self.lr
+            	}
+		torch.save(state, save_dir + '/checkpoint.pth')
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
+    ### ------------------------------------------------------ ###
